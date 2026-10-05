@@ -3,38 +3,51 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Barshaa Chat</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{font-family:system-ui,sans-serif;max-width:620px;margin:0 auto;padding:20px;background:#f5f5f5}.card{background:white;padding:20px;border-radius:16px;box-shadow:0 2px 12px #0001}input,button{padding:12px;font-size:16px;width:100%;box-sizing:border-box;margin:5px 0}button{cursor:pointer}.room{display:none}.messages{height:300px;overflow:auto;border:1px solid #ddd;padding:10px;margin:10px 0}.msg{padding:8px 10px;margin:6px 0;background:#f0f0f0;border-radius:10px}
+body{font-family:system-ui,sans-serif;max-width:620px;margin:0 auto;padding:20px;background:#f5f5f5}.card{background:white;padding:20px;border-radius:16px;box-shadow:0 2px 12px #0001}input,button{padding:12px;font-size:16px;width:100%;box-sizing:border-box;margin:5px 0}button{cursor:pointer}.room{display:none}.messages{height:300px;overflow:auto;border:1px solid #ddd;padding:10px;margin:10px 0}.msg{padding:8px 10px;margin:6px 0;background:#f0f0f0;border-radius:10px}.muted{color:#666}.error{color:#b00020}
 </style></head>
 <body>
 <div class="card">
 <h1>💬 Barshaa Chat</h1>
-<p>Join a room with a shared code.</p>
+<p class="muted">Real-time room chat powered by Supabase.</p>
 <div id="join">
 <input id="name" placeholder="Your name" maxlength="30">
 <input id="code" placeholder="Room code (e.g. ABC123)" maxlength="12">
-<button onclick="joinRoom()">Join Room</button>
+<button id="joinBtn">Join Room</button>
+<p id="joinStatus"></p>
 </div>
 <div id="room" class="room">
 <p>Room: <b id="roomCode"></b></p>
 <div id="messages" class="messages"></div>
-<input id="text" placeholder="Type a message" maxlength="500" onkeydown="if(event.key==='Enter')send()">
-<button onclick="send()">Send</button><button onclick="leave()">Leave Room</button>
+<input id="text" placeholder="Type a message" maxlength="500">
+<button id="sendBtn">Send</button><button id="leaveBtn">Leave Room</button>
 </div>
 </div>
 <script>
-let username='',room='';
-const key=()=>`barshaa-room-${room}`;
-function joinRoom(){
- username=document.getElementById('name').value.trim()||'Guest';
- room=document.getElementById('code').value.trim().toUpperCase();
- if(!room)return alert('Enter a room code.');
- document.getElementById('join').style.display='none';document.getElementById('room').style.display='block';document.getElementById('roomCode').textContent=room;load();
-}
-function load(){const data=JSON.parse(localStorage.getItem(key())||'[]');document.getElementById('messages').innerHTML=data.map(m=>`<div class="msg"><b>${esc(m.name)}</b>: ${esc(m.text)}</div>`).join('');document.getElementById('messages').scrollTop=99999}
-function send(){const el=document.getElementById('text'),text=el.value.trim();if(!text)return;const data=JSON.parse(localStorage.getItem(key())||'[]');data.push({name:username,text});localStorage.setItem(key(),JSON.stringify(data.slice(-100)));el.value='';load()}
-function leave(){room='';document.getElementById('room').style.display='none';document.getElementById('join').style.display='block'}
+const SUPABASE_URL='https://ihkknxctfqtqzxjdkfsm.supabase.co';
+const SUPABASE_KEY='sb_publishable_cublJL5ldaj3OFLddeGvlg_meHMM1py';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let username='',roomCode='',roomId='',channel=null;
+const $=id=>document.getElementById(id);
 function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-setInterval(()=>{if(room)load()},1000);
+function render(messages){$('messages').innerHTML=messages.map(m=>`<div class="msg"><b>${esc(m.username)}</b>: ${esc(m.body)}</div>`).join('');$('messages').scrollTop=$('messages').scrollHeight}
+async function loadMessages(){const {data,error}=await db.from('messages').select('id,username,body,created_at').eq('room_id',roomId).order('created_at',{ascending:true}).limit(100);if(error){$('joinStatus').textContent=error.message;return}render(data||[])}
+async function joinRoom(){
+ username=$('name').value.trim()||'Guest'; roomCode=$('code').value.trim().toUpperCase();
+ if(!roomCode){$('joinStatus').textContent='Enter a room code.';return}
+ if(!/^[A-Z0-9-]{4,12}$/.test(roomCode)){$('joinStatus').textContent='Use 4–12 letters, numbers or hyphens.';return}
+ $('joinBtn').disabled=true;$('joinStatus').textContent='Joining…';
+ try{
+  let {data:room,error}=await db.from('rooms').select('id,code').eq('code',roomCode).maybeSingle();
+  if(error)throw error;
+  if(!room){const created=await db.from('rooms').insert({code:roomCode}).select('id,code').single();if(created.error && created.error.code==='23505'){const again=await db.from('rooms').select('id,code').eq('code',roomCode).single();if(again.error)throw again.error;room=again.data}else if(created.error)throw created.error;else room=created.data}
+  roomId=room.id;$('roomCode').textContent=room.code;$('join').style.display='none';$('room').style.display='block';$('joinStatus').textContent='';await loadMessages();
+  channel=db.channel('room-'+roomId).on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`room_id=eq.${roomId}`},payload=>{const m=payload.new;const div=document.createElement('div');div.className='msg';div.innerHTML=`<b>${esc(m.username)}</b>: ${esc(m.body)}`;$('messages').appendChild(div);$('messages').scrollTop=$('messages').scrollHeight}).subscribe();
+ }catch(e){$('joinStatus').textContent='Could not join room: '+(e.message||e);$('joinBtn').disabled=false}
+}
+async function send(){const el=$('text'),body=el.value.trim();if(!body||!roomId)return;$('sendBtn').disabled=true;const {error}=await db.from('messages').insert({room_id:roomId,username,body});if(error)alert('Message failed: '+error.message);else el.value='';$('sendBtn').disabled=false}
+async function leave(){if(channel){await db.removeChannel(channel);channel=null}roomId='';roomCode='';$('messages').innerHTML='';$('room').style.display='none';$('join').style.display='block';$('joinBtn').disabled=false}
+$('joinBtn').onclick=joinRoom;$('sendBtn').onclick=send;$('leaveBtn').onclick=leave;$('text').addEventListener('keydown',e=>{if(e.key==='Enter')send()});
 </script>
 </body></html>
