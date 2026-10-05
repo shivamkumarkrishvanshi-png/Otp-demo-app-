@@ -1,1 +1,17 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Barshaa Chat</title><meta http-equiv="refresh" content="0; url=barshaa-chat.html"></head><body><p>Opening Barshaa Chat…</p><script>location.replace('barshaa-chat.html');</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Barshaa Chat</title>
+</head>
+<body>
+<p>Opening Barshaa Chat…</p>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./service-worker.js').catch(()=>{});}
+location.replace('./barshaa-chat.html');
+</script>
+</body>
+</html>
