@@ -1,0 +1,10 @@
+{
+  "name": "Barshaa Chat",
+  "short_name": "Barshaa",
+  "start_url": "./barshaa-chat.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#111111",
+  "description": "Room-code based realtime chat demo"
+}
