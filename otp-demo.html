@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OTP Demo Simulator</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:520px;margin:40px auto;padding:20px}input,button{font-size:16px;padding:10px;margin:6px 0;width:100%;box-sizing:border-box}button{cursor:pointer}.box{border:1px solid #ccc;border-radius:12px;padding:18px}.otp{font-size:32px;letter-spacing:8px;font-weight:700}.muted{color:#666}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>OTP Demo Simulator</h1>
+<p class="muted">Local demo only. No SMS is sent.</p>
+<input id="phone" placeholder="Demo phone number" inputmode="tel">
+<button id="send">Generate Demo OTP</button>
+<div id="result"></div>
+<input id="code" placeholder="Enter 6-digit OTP" inputmode="numeric" maxlength="6">
+<button id="verify">Verify OTP</button>
+<p id="status"></p>
+</div>
+<script>
+let otp=null;
+const result=document.getElementById('result');
+const status=document.getElementById('status');
+document.getElementById('send').onclick=()=>{
+  otp=String(Math.floor(100000+Math.random()*900000));
+  result.innerHTML='<p>Demo OTP:</p><div class="otp">'+otp+'</div><p class="muted">This code stays inside the simulator.</p>';
+  status.textContent='';
+};
+document.getElementById('verify').onclick=()=>{
+  const entered=document.getElementById('code').value.trim();
+  if(!otp) status.textContent='Generate a demo OTP first.';
+  else if(entered===otp){status.textContent='OTP verified successfully.';otp=null;}
+  else status.textContent='Incorrect OTP.';
+};
+</script>
+</body>
+</html>
